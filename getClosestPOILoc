@@ -1,0 +1,34 @@
+int getClosestPOILoc(float result[3], float myPos[3], float otherPos[3], float POIs[3][3], int numPOIs) {
+    float empty[3];
+    empty[0] = 0;
+    empty[1] = 0;
+    empty[2] = 0;
+    memcpy(result, empty, sizeof(float) * 3);
+    float dists[numPOIs];
+    for (int i = 0; i < numPOIs; i++) {
+        dists[i] = getDist(myPos, POIs[i]);
+    }
+    
+    float min = dists[0];
+    int closestID = 0;
+    for (int i = 1; i < numPOIs; i++) {
+        //favors POI's further from opponent
+        if (fabsf(dists[i] - min) < 0.07) {
+            float dcurrent = getDist(otherPos, POIs[i]);
+            float dmin = getDist(otherPos, POIs[closestID]);
+            if (dcurrent > dmin) {
+                min = dists[i];
+                closestID = i;
+                continue;
+            }
+        }
+        if (dists[i] < min) {
+            min = dists[i];
+            closestID = i;
+        }
+    }
+    for (int i = 0; i < 3; i++) {
+        result[i] = POIs[closestID][i];
+    }
+    return closestID;
+}

@@ -1,0 +1,224 @@
+float myState[12];
+float myPos[3];
+float myAtt[3];
+float otherState[12];
+float otherPos[3];
+
+float distToOther;
+float distToCenter;
+float myFuturePos[3];
+float myFutureAtt[3];
+float otherFuturePos[3];
+int memory;
+bool isValidInner, isValidOuter;
+bool achieved;
+float POIs[3][3];
+int numPOIs;
+
+float closestPOI[3];
+int closestID;
+
+int zone;
+int strategy;
+int strategyTimer;
+
+unsigned time;
+bool hasFlared;
+int nextFlare;
+int minNextFlare;
+
+//constants
+float danger, inner, outer;
+float innerAngle, outerAngle;
+
+
+void init(){
+  hasFlared = false;
+	//constants
+  danger = 0.31;
+  inner = 0.42;
+  outer = 0.53;
+  innerAngle = 0.8;
+  outerAngle = 0.4;
+}
+
+
+void loop(){
+  //gets basic information
+    time = api.getTime();
+    nextFlare = game.getNextFlare();
+
+	  api.getMyZRState(myState);
+    api.getOtherZRState(otherState);
+
+	for (int i = 0; i < 3; i++) {
+      myPos[i] = myState[i];
+      myAtt[i] = myState[i+6];
+      otherPos[i] = otherState[i];
+
+	     myFuturePos[i] = myPos[i] + myState[i+3];
+	     myFutureAtt[i] = myAtt[i] + myState[i+9];
+      otherFuturePos[i] = otherPos[i] + otherState[i+3];
+  }
+
+	distToOther = getDist(myPos, otherPos);
+  distToCenter = mathVecMagnitude(myPos, 3);
+  memory = game.getMemoryFilled();
+
+	//every 60 seconds, updates POI info
+	if (time % 60 == 0) {
+	    isValidInner = false;
+	    isValidOuter = false;
+	    achieved = false;
+	    numPOIs = 3;
+	    game.getPOILoc(POIs[0], 0);
+	    game.getPOILoc(POIs[1], 1); 
+	    game.getPOILoc(POIs[2], 2);
+	    closestID = getClosestPOILoc(closestPOI, myPos, otherPos, POIs, numPOIs);
+	}
+
+	//resets hasFlared to false when a new flare time period starts
+	if ((time - 30) % 70 == 0) {
+	    hasFlared = false;
+	}
+	
+	//turns off and on when neccessary
+	if (nextFlare == 2) {
+	    game.turnOff();
+	    game.turnOn();
+	    return;
+	} else if (nextFlare == 1) {
+	    hasFlared = true;
+	}
+
+	//calculates the minimum amout of time that there will be no flare
+	minNextFlare = nextFlare;
+	if (nextFlare == -1) {
+	    if (hasFlared) {
+	        minNextFlare = max((70 - ((time - 30) % 70)), 31);
+	    } else {
+	        minNextFlare = 31;
+	    }
+	}
+
+	//achieved is when the sphere has pointed at the POI
+	if (!achieved && game.alignLine(closestID)) {
+	    achieved = true;
+	}
+
+	//These are things you want to do as soon as we are able if possible
+	//saving these actions for later has little benefit
+	//1 is inner zone, 2 is outer zone, and 3 is outside outer zone
+	int zone = 0;
+	//take pictures
+	if (distToCenter > danger && distToCenter < inner && minNextFlare > 17) {
+	    zone = 1;
+	    if (!isValidInner && game.alignLine(closestID)) {
+            game.takePic(closestID);
+            if (game.getMemoryFilled() > memory) {
+                isValidInner = true;
+            }
+	    }
+	} else if (distToCenter > inner && distToCenter < outer && minNextFlare > 8) {
+	    zone = 2;
+	    if (!isValidOuter && game.alignLine(closestID)) {
+            game.takePic(closestID);
+            if (game.getMemoryFilled() > memory) {
+                isValidOuter = true;
+            }
+	    }
+	} else if (distToCenter > outer) {
+	    zone = 3;
+	    if (memory > 0) {
+	        game.uploadPic();
+	    }
+	}
+	memory = game.getMemoryFilled();
+	float innerPic[3], outerPic[3], uploadPic[3], picAtt[3];
+	float innerDist = inner - 0.03;
+	float outerDist = outer - 0.03;
+	float uploadDist = outer + 0.08;
+	setMagnitude(innerPic, closestPOI, innerDist);
+	setMagnitude(outerPic, closestPOI, outerDist);
+	setMagnitude(uploadPic, closestPOI, uploadDist);
+	setMagnitude(picAtt, closestPOI, -1.0);
+	
+	//strategy: 0 is wait, 1 is go for inner zone picture, 2 is go for outer zone picture, and 3 is upload pictures
+	//some calculations are done to determine if min time to next flare is enough to get an extra picture
+    if (!isValidInner && !isValidOuter) {
+        if (zone == 1) {
+            strategy = 1;
+        } else if (zone == 2) {
+            if (!achieved) {
+                strategy = 1;
+            } else {
+                strategy = 2;
+            }
+        } else if (zone == 3) {
+            if (!achieved) {
+                strategy = 1;
+            } else {
+                if (minNextFlare > (100 * (distToCenter - outer) + 5)) {
+                    strategy = 2;
+                } else {
+                    strategy = 0;
+                }
+            }
+        }
+    } else if (isValidInner && !isValidOuter) {
+        if (zone == 1) {
+            strategy = 2;
+        } else if (zone == 2) {
+            strategy = 2;
+        } else if (zone == 3) {
+            if (minNextFlare > (100 * (distToCenter - outer) + 5)) {
+                strategy = 2;
+            } else {
+                strategy = 0;
+            }
+        }
+    } else if (!isValidInner && isValidOuter) {
+        if (zone == 1) {
+            if (getDist(myPos, innerPic) < 0.15) {
+                strategy = 1;
+            } else {
+                strategy = 3;
+            }
+        } else if (zone == 2) {
+            if (minNextFlare > (100 * (distToCenter - inner) + 25)) {
+                strategy = 1;
+            } else {
+                strategy = 3;
+            }
+        } else if (zone == 3) {
+            strategy = 0;
+        }
+    } else {
+        if (zone == 1) {
+            strategy = 3;
+        } else if (zone == 2) {
+            strategy = 3;
+        } else if (zone == 3) {
+            strategy = 0;
+        }
+    }
+
+    if (strategy == 1) {
+        api.setPositionTarget(innerPic);
+        api.setAttitudeTarget(picAtt);
+    } else if (strategy == 2) {
+        api.setPositionTarget(outerPic);
+        api.setAttitudeTarget(picAtt);
+    } else if (strategy == 3) {
+        api.setPositionTarget(uploadPic);
+    } else if (strategy == 0) {
+        float outerEdge[3];
+        setMagnitude(outerEdge, closestPOI, outer);
+        api.setPositionTarget(outerEdge);
+    }
+
+	//DEBUG(("Aligned: %d\nMinNextFlare: %d\nAchieved: %d\nStrategy: %d\nDist: %f\nInner, Outer, mem: %d, %d, %d\n", 
+
+	//game.alignLine(closestID), minNextFlare, achieved, strategy, distToCenter, isValidInner, isValidOuter, memory));
+
+}

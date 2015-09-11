@@ -1,0 +1,28 @@
+bool isObstructed(float start[3], float end[3], float obstructer[3], float radius){
+    
+    float vectorBetween[3];
+    float fractionDif[3];
+    float testLength;
+    float length;
+    float sum[3];
+    float sum2[3];
+    int steps;
+    float fixedInterval = .05;
+    
+    mathVecSubtract(vectorBetween, end, start, 3);
+    length = mathVecMagnitude(vectorBetween, 3);
+    steps = length / fixedInterval;
+     
+    for (float x = 1; x <= steps; x++) {
+        
+        setMagnitude(fractionDif, vectorBetween, x / steps);
+        mathVecAdd(sum, fractionDif, start, 3);
+        mathVecSubtract(sum2, sum, obstructer, 3);
+        testLength = mathVecMagnitude(sum2, 3);
+        
+        if(testLength < radius + .005 ) {
+             return true;
+        }
+     }
+     return false;
+}

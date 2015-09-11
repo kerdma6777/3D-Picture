@@ -1,0 +1,14 @@
+void setMagnitude(float result[3], float original[3], float mag) {
+    float empty[3];
+    empty[0] = 0;
+    empty[1] = 0;
+    empty[2] = 0;
+    memcpy(result, empty, sizeof(float) * 3);
+    result[0] = original[0];
+    result[1] = original[1];
+    result[2] = original[2];
+    mathVecNormalize(result, 3);
+    result[0] *= mag;
+    result[1] *= mag;
+    result[2] *= mag;
+}

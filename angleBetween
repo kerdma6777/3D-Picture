@@ -1,0 +1,3 @@
+float angleBetween(float att1[3], float att2[3]) {
+    return acosf(mathVecInner(att1, att2, 3) / (mathVecMagnitude(att1, 3) * mathVecMagnitude(att2, 3)));
+}

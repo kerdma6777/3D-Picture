@@ -1,0 +1,9 @@
+float getDist(float pos1[3], float pos2[3]) {
+
+	float vectorBetween[3];
+
+	mathVecSubtract(vectorBetween, pos1, pos2, 3);
+
+	return mathVecMagnitude(vectorBetween, 3);
+
+}

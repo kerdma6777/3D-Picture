@@ -217,8 +217,4 @@ void loop(){
         api.setPositionTarget(outerEdge);
     }
 
-	//DEBUG(("Aligned: %d\nMinNextFlare: %d\nAchieved: %d\nStrategy: %d\nDist: %f\nInner, Outer, mem: %d, %d, %d\n", 
-
-	//game.alignLine(closestID), minNextFlare, achieved, strategy, distToCenter, isValidInner, isValidOuter, memory));
-
 }
